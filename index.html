@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meme Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f4f4f5;--surface:#ffffff;--surface-alt:#fafafa;
+  --text:#18181b;--text-2:#52525b;--text-3:#a1a1aa;
+  --accent:#18181b;--accent-hover:#27272a;
+  --border:#e4e4e7;--border-2:#d4d4d8;
+  --ring:rgba(24,24,24,.12);--shadow:0 1px 3px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.04);
+  --shadow-lg:0 4px 16px rgba(0,0,0,.08);
+  --radius:8px;--radius-lg:12px;
+}
+html{font-size:15px}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* ── Header ── */
+header{background:var(--surface);border-bottom:1px solid var(--border);padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between}
+header h1{font-size:1rem;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:8px}
+header h1 span{font-size:1.2rem}
+.header-hint{font-size:.75rem;color:var(--text-3);font-weight:400}
+
+/* ── Layout ── */
+.app{display:flex;height:calc(100vh - 56px);overflow:hidden}
+.sidebar{width:300px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);overflow-y:auto;display:flex;flex-direction:column}
+.canvas-area{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;overflow:auto;background:var(--bg)}
+
+/* ── Sidebar sections ── */
+.sidebar-section{padding:16px 20px;border-bottom:1px solid var(--border)}
+.sidebar-section:last-child{border-bottom:none}
+.section-label{font-size:.68rem;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);margin-bottom:12px}
+
+/* ── Form controls ── */
+.field{margin-bottom:12px}
+.field:last-child{margin-bottom:0}
+.field label{display:block;font-size:.8rem;font-weight:500;color:var(--text-2);margin-bottom:4px}
+input[type=text],input[type=number],select{
+  width:100%;padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius);
+  background:var(--surface);color:var(--text);font-size:.82rem;font-family:inherit;
+  outline:none;transition:border-color .15s,box-shadow .15s;margin:0
+}
+input[type=text]:focus,select:focus{border-color:var(--text-2);box-shadow:0 0 0 3px var(--ring)}
+input[type=color]{width:36px;height:30px;border:1px solid var(--border);border-radius:6px;cursor:pointer;padding:2px;background:var(--surface)}
+input[type=range]{width:100%;margin:4px 0 0;accent-color:var(--text)}
+.row{display:flex;align-items:center;gap:10px}
+.row label{margin-bottom:0;white-space:nowrap}
+.row .field{flex:1}
+
+/* ── Buttons ── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  padding:8px 14px;border:1px solid var(--border);border-radius:var(--radius);
+  font-size:.8rem;font-weight:500;font-family:inherit;cursor:pointer;
+  transition:all .15s;background:var(--surface);color:var(--text);
+}
+.btn:hover{background:var(--bg);border-color:var(--border-2)}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.btn-primary:hover{background:var(--accent-hover);border-color:var(--accent-hover)}
+.btn-sm{padding:5px 10px;font-size:.75rem}
+.btn-block{width:100%}
+.btn.active{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* ── File upload ── */
+.file-btn{position:relative;overflow:hidden}
+.file-btn input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer}
+
+/* ── Canvas ── */
+canvas{border-radius:var(--radius-lg);box-shadow:var(--shadow-lg);background:#fff;display:block;max-width:100%;border:1px solid var(--border)}
+.canvas-wrapper{position:relative;display:flex;flex-direction:column;align-items:center;gap:12px}
+
+/* ── Toolbar ── */
+.toolbar{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.toolbar .btn{min-width:34px}
+.toolbar-divider{width:1px;height:24px;background:var(--border);margin:0 4px}
+
+/* ── Social ── */
+.social-row{display:flex;gap:6px}
+.social-row .btn{flex:1}
+
+/* ── Scrollbar ── */
+.sidebar::-webkit-scrollbar{width:6px}
+.sidebar::-webkit-scrollbar-track{background:transparent}
+.sidebar::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
+
+/* ── Responsive ── */
+@media(max-width:860px){
+  .app{flex-direction:column;height:auto}
+  .sidebar{width:100%;flex-direction:row;flex-wrap:wrap;border-right:none;border-bottom:1px solid var(--border)}
+  .sidebar-section{flex:1;min-width:240px;border-bottom:none;border-right:1px solid var(--border)}
+  .canvas-area{min-height:50vh}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1><span>◆</span> Meme Generator</h1>
+  <span class="header-hint">Upload an image to begin</span>
+</header>
+
+<div class="app">
+<!-- ─── Sidebar ─── -->
+<aside class="sidebar">
+
+  <!-- Image -->
+  <div class="sidebar-section">
+    <div class="section-label">Image</div>
+    <button class="btn btn-block btn-primary file-btn">
+      Upload Image
+      <input type="file" id="imgUpload" accept="image/*">
+    </button>
+  </div>
+
+  <!-- Text -->
+  <div class="sidebar-section">
+    <div class="section-label">Text</div>
+    <div class="field">
+      <label for="topText">Top text</label>
+      <input type="text" id="topText" placeholder="Enter top text…">
+    </div>
+    <div class="field">
+      <label for="botText">Bottom text</label>
+      <input type="text" id="botText" placeholder="Enter bottom text…">
+    </div>
+    <div class="row" style="margin-top:4px">
+      <div class="field" style="flex:0 0 auto">
+        <label>Color</label>
+        <input type="color" id="textColor" value="#ffffff">
+      </div>
+      <div class="field">
+        <label>Size <span id="sizeLabel" style="font-weight:400;color:var(--text-3)">40px</span></label>
+        <input type="range" id="fontSizeRange" min="10" max="100" value="40">
+      </div>
+    </div>
+    <div class="field">
+      <label for="fontFamily">Font family</label>
+      <select id="fontFamily">
+        <option value="Impact">Impact</option>
+        <option value="Arial">Arial</option>
+        <option value="Comic Sans MS">Comic Sans MS</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Courier New">Courier New</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- Drawing -->
+  <div class="sidebar-section">
+    <div class="section-label">Drawing</div>
+    <div class="toolbar" id="drawModes">
+      <button class="btn btn-sm active" data-mode="none" title="Select / Move">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+      </button>
+      <button class="btn btn-sm" data-mode="free" title="Free Draw">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+      </button>
+      <button class="btn btn-sm" data-mode="rect" title="Rectangle">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      </button>
+      <button class="btn btn-sm" data-mode="circle" title="Ellipse">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+      </button>
+      <button class="btn btn-sm" data-mode="eraser" title="Eraser">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16l9-9 8 8-4 4"/><path d="M6.5 13.5l5 5"/></svg>
+      </button>
+    </div>
+    <div class="row" style="margin-top:10px">
+      <div class="field" style="flex:0 0 auto">
+        <label>Color</label>
+        <input type="color" id="drawColor" value="#18181b">
+      </div>
+      <div class="field">
+        <label for="strokeWidth">Width</label>
+        <select id="strokeWidth">
+          <option value="2">Thin</option>
+          <option value="5" selected>Medium</option>
+          <option value="10">Thick</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn btn-block btn-sm" id="clearDrawings" style="margin-top:8px">Clear drawings</button>
+  </div>
+
+  <!-- Export -->
+  <div class="sidebar-section">
+    <div class="section-label">Export &amp; Share</div>
+    <button class="btn btn-primary btn-block" id="downloadBtn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download PNG
+    </button>
+    <div class="social-row" style="margin-top:8px">
+      <button class="btn btn-sm" id="shareTwitter" title="Share on X / Twitter">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        Post
+      </button>
+      <button class="btn btn-sm" id="shareReddit" title="Share on Reddit">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0A12 12 0 0 0 0 12a12 12 0 0 0 12 12 12 12 0 0 0 12-12A12 12 0 0 0 12 0zm5.01 4.744c.688 0 1.25.561 1.25 1.249a1.25 1.25 0 0 1-2.498.056l-2.597-.547-.8 3.747c1.824.07 3.48.632 4.674 1.488.308-.309.73-.491 1.207-.491.968 0 1.754.786 1.754 1.754 0 .716-.435 1.333-1.01 1.614a3.111 3.111 0 0 1 .042.52c0 2.694-3.13 4.87-7.004 4.87-3.874 0-7.004-2.176-7.004-4.87 0-.183.015-.366.043-.534A1.748 1.748 0 0 1 4.028 12c0-.968.786-1.754 1.754-1.754.463 0 .898.196 1.207.49 1.207-.883 2.878-1.43 4.744-1.487l.885-4.182a.342.342 0 0 1 .14-.197.35.35 0 0 1 .238-.042l2.906.617a1.214 1.214 0 0 1 1.108-.701zM9.25 12C8.561 12 8 12.562 8 13.25c0 .687.561 1.248 1.25 1.248.687 0 1.248-.561 1.248-1.249 0-.688-.561-1.249-1.249-1.249zm5.5 0c-.687 0-1.248.561-1.248 1.25 0 .687.561 1.248 1.249 1.248.688 0 1.249-.561 1.249-1.249 0-.687-.562-1.249-1.25-1.249zm-5.466 3.99a.327.327 0 0 0-.231.094.33.33 0 0 0 0 .463c.842.842 2.484.913 2.961.913.477 0 2.105-.056 2.961-.913a.361.361 0 0 0 .029-.463.33.33 0 0 0-.464 0c-.547.533-1.684.73-2.512.73-.828 0-1.979-.196-2.512-.73a.326.326 0 0 0-.232-.095z"/></svg>
+        Post
+      </button>
+      <button class="btn btn-sm" id="shareFacebook" title="Share on Facebook">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        Share
+      </button>
+    </div>
+  </div>
+</aside>
+
+<!-- ─── Canvas ─── -->
+<main class="canvas-area">
+  <div class="canvas-wrapper">
+    <canvas id="memeCanvas" width="600" height="400"></canvas>
+    <div class="toolbar" id="bottomBar">
+      <button class="btn btn-sm active" data-mode="none" title="Select">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3l7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/></svg>
+        Select
+      </button>
+      <button class="btn btn-sm" data-mode="free" title="Draw">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/></svg>
+        Draw
+      </button>
+      <button class="btn btn-sm" data-mode="rect" title="Rectangle">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+        Rect
+      </button>
+      <button class="btn btn-sm" data-mode="circle" title="Circle">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/></svg>
+        Circle
+      </button>
+      <button class="btn btn-sm" data-mode="eraser" title="Eraser">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 20H7L3 16l9-9 8 8-4 4"/></svg>
+        Eraser
+      </button>
+      <div class="toolbar-divider"></div>
+      <span style="font-size:.7rem;color:var(--text-3)">Drag text in Select mode</span>
+    </div>
+  </div>
+</main>
+</div>
+
+<script>
+(function(){
+  var canvas = document.getElementById('memeCanvas');
+  var ctx = canvas.getContext('2d');
+
+  // ── State ──
+  var img = null;
+  var drawMode = 'none';
+  var drawings = [];
+  var currentStroke = null;
+  var drawStart = null;
+  var dragging = null;
+  var dragOffset = {x:0, y:0};
+  var hoverText = null;
+  var topTextBounds = null;
+  var botTextBounds = null;
+  var topTextPos = null;
+  var botTextPos = null;
+
+  // ── Elements ──
+  var $ = function(id){ return document.getElementById(id); };
+  var imgUpload = $('imgUpload');
+  var topTextInput = $('topText');
+  var botTextInput = $('botText');
+  var textColor = $('textColor');
+  var fontSizeRange = $('fontSizeRange');
+  var sizeLabel = $('sizeLabel');
+  var fontFamilySelect = $('fontFamily');
+  var drawColorInput = $('drawColor');
+  var strokeWidthSelect = $('strokeWidth');
+
+  // ── Sync size label ──
+  fontSizeRange.addEventListener('input', function(){
+    sizeLabel.textContent = fontSizeRange.value + 'px';
+    render();
+  });
+
+  // ── All text/style inputs ──
+  [topTextInput, botTextInput, textColor, fontFamilySelect].forEach(function(el){
+    el.addEventListener('input', render);
+  });
+
+  // ── Image upload ──
+  imgUpload.addEventListener('change', function(e){
+    var file = e.target.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(ev){
+      var i = new Image();
+      i.onload = function(){
+        img = i;
+        canvas.width = i.naturalWidth;
+        canvas.height = i.naturalHeight;
+        topTextPos = null;
+        botTextPos = null;
+        render();
+      };
+      i.src = ev.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+
+  // ── Draw mode buttons (both toolbars) ──
+  document.querySelectorAll('[data-mode]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      drawMode = btn.getAttribute('data-mode');
+      document.querySelectorAll('[data-mode]').forEach(function(b){ b.classList.remove('active'); });
+      document.querySelectorAll('[data-mode="'+drawMode+'"]').forEach(function(b){ b.classList.add('active'); });
+      canvas.style.cursor = drawMode === 'none' ? 'default' : 'crosshair';
+    });
+  });
+
+  // ── Clear drawings ──
+  $('clearDrawings').addEventListener('click', function(){ drawings = []; render(); });
+
+  // ── Download ──
+  $('downloadBtn').addEventListener('click', function(){
+    render();
+    var a = document.createElement('a');
+    a.download = 'meme.png';
+    a.href = canvas.toDataURL('image/png');
+    a.click();
+  });
+
+  // ── Social share ──
+  $('shareTwitter').addEventListener('click', function(){
+    var t = encodeURIComponent(topTextInput.value + ' ' + botTextInput.value);
+    window.open('https://twitter.com/intent/tweet?text=' + t, '_blank');
+  });
+  $('shareReddit').addEventListener('click', function(){
+    window.open('https://www.reddit.com/submit', '_blank');
+  });
+  $('shareFacebook').addEventListener('click', function(){
+    window.open('https://www.facebook.com/sharer/sharer.php', '_blank');
+  });
+
+  // ── Canvas coordinates ──
+  function getPos(e){
+    var r = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - r.left) * (canvas.width / r.width),
+      y: (e.clientY - r.top) * (canvas.height / r.height)
+    };
+  }
+
+  function hitTest(pos){
+    if(topTextBounds && pos.x >= topTextBounds.x && pos.x <= topTextBounds.x + topTextBounds.w &&
+       pos.y >= topTextBounds.y && pos.y <= topTextBounds.y + topTextBounds.h) return 'top';
+    if(botTextBounds && pos.x >= botTextBounds.x && pos.x <= botTextBounds.x + botTextBounds.w &&
+       pos.y >= botTextBounds.y && pos.y <= botTextBounds.y + botTextBounds.h) return 'bottom';
+    return null;
+  }
+
+  // ── Mouse events ──
+  canvas.addEventListener('mousedown', function(e){
+    var pos = getPos(e);
+    if(drawMode === 'none'){
+      var hit = hitTest(pos);
+      if(hit){
+        dragging = hit;
+        var b = hit === 'top' ? topTextBounds : botTextBounds;
+        dragOffset = { x: pos.x - b.x, y: pos.y - b.y };
+        canvas.style.cursor = 'grabbing';
+      }
+    } else if(drawMode === 'free'){
+      currentStroke = {type:'free', points:[pos], color: drawColorInput.value, width: parseInt(strokeWidthSelect.value)};
+    } else if(drawMode === 'eraser'){
+      currentStroke = {type:'eraser', points:[pos], width: parseInt(strokeWidthSelect.value) * 4};
+    } else if(drawMode === 'rect' || drawMode === 'circle'){
+      drawStart = pos;
+    }
+  });
+
+  canvas.addEventListener('mousemove', function(e){
+    var pos = getPos(e);
+    if(drawMode === 'none' && !dragging){
+      var hit = hitTest(pos);
+      if(hit !== hoverText){
+        hoverText = hit;
+        canvas.style.cursor = hit ? 'grab' : 'default';
+        render();
+      }
+    }
+    if(dragging){
+      var nx = pos.x - dragOffset.x;
+      var ny = pos.y - dragOffset.y;
+      if(dragging === 'top' && topTextBounds) topTextPos = {x: nx + topTextBounds.w/2, y: ny + topTextBounds.h - 6};
+      else if(dragging === 'bottom' && botTextBounds) botTextPos = {x: nx + botTextBounds.w/2, y: ny + 6};
+      render();
+    }
+    if((drawMode === 'free' || drawMode === 'eraser') && currentStroke){
+      currentStroke.points.push(pos);
+      render();
+    }
+    if((drawMode === 'rect' || drawMode === 'circle') && drawStart){
+      render();
+      drawShapePreview(drawStart, pos);
+    }
+  });
+
+  canvas.addEventListener('mouseup', function(e){
+    var pos = getPos(e);
+    if(dragging){ dragging = null; canvas.style.cursor = drawMode === 'none' ? 'default' : 'crosshair'; }
+    if(currentStroke){ drawings.push(currentStroke); currentStroke = null; }
+    if(drawStart && (drawMode === 'rect' || drawMode === 'circle')){
+      drawings.push({
+        type: drawMode,
+        x: Math.min(drawStart.x, pos.x), y: Math.min(drawStart.y, pos.y),
+        w: Math.abs(pos.x - drawStart.x), h: Math.abs(pos.y - drawStart.y),
+        color: drawColorInput.value, width: parseInt(strokeWidthSelect.value)
+      });
+      drawStart = null;
+      render();
+    }
+  });
+
+  canvas.addEventListener('mouseleave', function(){
+    if(dragging){ dragging = null; canvas.style.cursor = 'default'; }
+    if(currentStroke){ drawings.push(currentStroke); currentStroke = null; }
+    drawStart = null;
+    render();
+  });
+
+  // ── Shape preview ──
+  function drawShapePreview(start, end){
+    ctx.save();
+    ctx.strokeStyle = drawColorInput.value;
+    ctx.lineWidth = parseInt(strokeWidthSelect.value);
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    ctx.setLineDash([6, 4]);
+    if(drawMode === 'rect'){
+      ctx.strokeRect(Math.min(start.x,end.x), Math.min(start.y,end.y), Math.abs(end.x-start.x), Math.abs(end.y-start.y));
+    } else {
+      ctx.beginPath();
+      ctx.ellipse((start.x+end.x)/2, (start.y+end.y)/2, Math.abs(end.x-start.x)/2, Math.abs(end.y-start.y)/2, 0, 0, Math.PI*2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ── Text wrapping ──
+  function wrapText(text, maxWidth){
+    if(!text) return [''];
+    var words = text.split(' '), lines = [], line = '';
+    for(var i=0;i<words.length;i++){
+      var test = line ? line+' '+words[i] : words[i];
+      if(ctx.measureText(test).width > maxWidth && line){ lines.push(line); line = words[i]; }
+      else line = test;
+    }
+    if(line) lines.push(line);
+    return lines.length ? lines : [''];
+  }
+
+  // ── Draw stroke ──
+  function drawStrokePath(stroke){
+    if(stroke.points.length < 2) return;
+    ctx.save();
+    ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+    if(stroke.type === 'eraser'){
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.strokeStyle = 'rgba(0,0,0,1)';
+    } else {
+      ctx.strokeStyle = stroke.color;
+    }
+    ctx.lineWidth = stroke.width;
+    ctx.beginPath();
+    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
+    for(var i=1;i<stroke.points.length;i++) ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // ── Draw all drawings ──
+  function drawAllDrawings(){
+    var all = drawings.slice();
+    if(currentStroke) all.push(currentStroke);
+    for(var i=0;i<all.length;i++){
+      var d = all[i];
+      if(d.type === 'free' || d.type === 'eraser'){ drawStrokePath(d); }
+      else if(d.type === 'rect'){
+        ctx.save(); ctx.strokeStyle = d.color; ctx.lineWidth = d.width; ctx.lineJoin = 'round';
+        ctx.strokeRect(d.x, d.y, d.w, d.h); ctx.restore();
+      } else if(d.type === 'circle'){
+        ctx.save(); ctx.strokeStyle = d.color; ctx.lineWidth = d.width;
+        ctx.beginPath(); ctx.ellipse(d.x+d.w/2, d.y+d.h/2, d.w/2, d.h/2, 0, 0, Math.PI*2);
+        ctx.stroke(); ctx.restore();
+      }
+    }
+  }
+
+  // ── Render single text line ──
+  function renderTextLine(line, x, y, fontSize){
+    var font = fontFamilySelect.value;
+    ctx.font = 'bold '+fontSize+'px "'+font+'"';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    var strokeW = Math.max(3, fontSize / 10);
+    ctx.strokeStyle = '#000'; ctx.lineWidth = strokeW; ctx.lineJoin = 'round';
+    ctx.strokeText(line, x, y);
+    ctx.fillStyle = textColor.value;
+    ctx.fillText(line, x, y);
+  }
+
+  // ── Main render ──
+  function render(){
+    var w = canvas.width, h = canvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    // Layer 1: Image
+    if(img){
+      ctx.drawImage(img, 0, 0, w, h);
+    } else {
+      ctx.fillStyle = '#f9f9f9';
+      ctx.fillRect(0, 0, w, h);
+      ctx.fillStyle = '#aaa';
+      ctx.font = '15px Inter, system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('Upload an image to get started', w/2, h/2);
+    }
+
+    // Layer 2: Drawings
+    drawAllDrawings();
+
+    // Layer 3: Text
+    var fontSize = parseInt(fontSizeRange.value) || 40;
+    var font = fontFamilySelect.value;
+    ctx.font = 'bold '+fontSize+'px "'+font+'"';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    var maxTextW = w * 0.92;
+    var topText = topTextInput.value.toUpperCase();
+    var botText = botTextInput.value.toUpperCase();
+    var topLines = wrapText(topText, maxTextW);
+    var botLines = wrapText(botText, maxTextW);
+    var lineHeight = fontSize * 1.15;
+    var pad = 8;
+
+    // Top text
+    if(topText){
+      var totalTopH = topLines.length * lineHeight;
+      var ax = topTextPos ? topTextPos.x : w/2;
+      var ay = topTextPos ? topTextPos.y - totalTopH : pad;
+      topTextBounds = {x: ax - maxTextW/2 - pad, y: ay - pad, w: maxTextW + pad*2, h: totalTopH + pad*2};
+      if(hoverText === 'top' && drawMode === 'none'){
+        ctx.save();
+        ctx.fillStyle = 'rgba(24,24,24,.06)';
+        ctx.fillRect(topTextBounds.x, topTextBounds.y, topTextBounds.w, topTextBounds.h);
+        ctx.strokeStyle = 'rgba(24,24,24,.2)'; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+        ctx.strokeRect(topTextBounds.x, topTextBounds.y, topTextBounds.w, topTextBounds.h);
+        ctx.restore();
+      }
+      for(var i=0;i<topLines.length;i++) renderTextLine(topLines[i], ax, ay + i*lineHeight, fontSize);
+    } else { topTextBounds = null; }
+
+    // Bottom text
+    if(botText){
+      var totalBotH = botLines.length * lineHeight;
+      var bx = botTextPos ? botTextPos.x : w/2;
+      var by = botTextPos ? botTextPos.y : h - totalBotH - pad;
+      botTextBounds = {x: bx - maxTextW/2 - pad, y: by - pad, w: maxTextW + pad*2, h: totalBotH + pad*2};
+      if(hoverText === 'bottom' && drawMode === 'none'){
+        ctx.save();
+        ctx.fillStyle = 'rgba(24,24,24,.06)';
+        ctx.fillRect(botTextBounds.x, botTextBounds.y, botTextBounds.w, botTextBounds.h);
+        ctx.strokeStyle = 'rgba(24,24,24,.2)'; ctx.lineWidth = 1; ctx.setLineDash([4,3]);
+        ctx.strokeRect(botTextBounds.x, botTextBounds.y, botTextBounds.w, botTextBounds.h);
+        ctx.restore();
+      }
+      for(var j=0;j<botLines.length;j++) renderTextLine(botLines[j], bx, by + j*lineHeight, fontSize);
+    } else { botTextBounds = null; }
+  }
+
+  render();
+})();
+</script>
+</body>
+</html>
